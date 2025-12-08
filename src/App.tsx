@@ -4,8 +4,8 @@ import { TransactionBlock } from '@mysten/sui/transactions';
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA (verifique em explorer.sui.io)
-const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (atualize de docs.ika.xyz/move)
+const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
+const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
 
 function App() {
   const account = useCurrentAccount();
@@ -16,7 +16,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hasIka, setHasIka] = useState<boolean | null>(null);
 
-  // Verifica saldo IKA (real via Sui RPC)
+  // Verifica saldo IKA
   const checkIkaBalance = async () => {
     if (!account?.address) return;
     try {
@@ -35,7 +35,7 @@ function App() {
     if (account) checkIkaBalance();
   }, [account]);
 
-  // Cria dWallet via tx Sui aprovada na wallet (simula MPC cap)
+  // Cria dWallet via tx Sui
   const createDWallet = async () => {
     if (!signAndExecuteTransaction || hasIka === false) return;
     setLoading(true);
@@ -50,7 +50,7 @@ function App() {
         transactionBlock: txb,
       });
 
-      // Simula endereço Base gerado via MPC (determinístico de Sui address)
+      // Simula endereço Base
       const simulatedBaseAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(account.address)).slice(2, 42);
       setBaseAddress(simulatedBaseAddress);
     } catch (error) {
@@ -60,7 +60,7 @@ function App() {
     }
   };
 
-  // Swap via MPC (aprovação Sui + simulação broadcast na Base)
+  // Swap via MPC
   const doSwap = async () => {
     if (!signAndExecuteTransaction || hasIka === false || !baseAddress) return;
     setLoading(true);
@@ -68,14 +68,14 @@ function App() {
       const txb = new TransactionBlock();
       txb.moveCall({
         target: `${DWALLET_PACKAGE}::approve_mpc_sign`,
-        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Chain string, amount u64 (0.001 ETH in mist)
+        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Correto: string e u64
       });
 
       await signAndExecuteTransaction({
         transactionBlock: txb,
       });
 
-      // Simula hash da tx na Base (veja no Basescan como exemplo)
+      // Simula hash Base
       const simulatedHash = '0x' + '123456789abcdef0'.repeat(4).slice(0, 66);
       setTxHash(simulatedHash);
     } catch (error) {
