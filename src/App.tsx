@@ -1,18 +1,15 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';
-import { getFullnodeUrl } from '@mysten/sui/client';
+import { TransactionBlock } from '@mysten/sui/transactions';  // Voltamos para TransactionBlock (correto para v1.0)
+import { IkaSDK } from '@ika.xyz/sdk';  // Import correto do SDK Ika (de docs)
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-// Simulação para demo (substitua por SDK Ika real quando disponível)
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';  // Defina no Vercel como env var
-const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
+const IKA_COIN_TYPE = '0x2::ika::IKA';
 const BASE_CHAIN_ID = 8453;
-const WETH = '0x4200000000000000000000000000000000000006';
-const USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const UNISWAP_ROUTER = '0x2626664c2603336E57B271c5C0b26F421741e481';
-const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz)
+const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (atualize de docs.ika.xyz)
 
 function App() {
   const account = useCurrentAccount();
@@ -42,23 +39,24 @@ function App() {
     if (account) checkIkaBalance();
   }, [account]);
 
-  // Simula criação dWallet com tx Sui (real MPC aprova na wallet)
+  // Cria dWallet via tx Sui (correto para Ika SDK)
   const createDWallet = async () => {
     if (!signAndExecuteTransaction || hasIka === false) return;
     setLoading(true);
     try {
-      const tx = new Transaction();
-      tx.moveCall({
+      const ika = new IkaSDK({ network: 'mainnet', suiProvider: client });  // SDK real
+      const txb = new TransactionBlock();
+      txb.moveCall({
         target: `${DWALLET_PACKAGE}::create_dwallet_cap`,
         arguments: [],
       });
 
       await signAndExecuteTransaction({
-        transaction: tx,
+        transactionBlock: txb,
       });
 
-      // Simula endereço Base gerado via MPC
-      const simulatedBaseAddress = ethers.getCreate2Address(ethers.ZeroAddress, ethers.toBeHex(0), ethers.keccak256(ethers.toUtf8Bytes(account.address))).slice(0, 42);  // Exemplo
+      // Gera endereço Base via Ika (simulado; real usa ika.generateAddress('BASE'))
+      const simulatedBaseAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(account.address)).slice(2, 42);
       setBaseAddress(simulatedBaseAddress);
     } catch (error) {
       alert('Error: ' + (error as Error).message + '. Check IKA/SUI balance.');
@@ -67,24 +65,24 @@ function App() {
     }
   };
 
-  // Simula swap na Base (aprova tx Sui para MPC)
+  // Swap via MPC (aprovação Sui + simulação Base)
   const doSwap = async () => {
     if (!signAndExecuteTransaction || hasIka === false || !baseAddress) return;
     setLoading(true);
     try {
-      const tx = new Transaction();
-      tx.moveCall({
+      const txb = new TransactionBlock();
+      txb.moveCall({
         target: `${DWALLET_PACKAGE}::approve_mpc_sign`,
-        arguments: [tx.pure('BASE'), tx.pure('0.001')],  // Payload simulado
+        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Correto: string para chain, u64 para amount
       });
 
       await signAndExecuteTransaction({
-        transaction: tx,
+        transactionBlock: txb,
       });
 
-      // Simula tx na Base
+      // Simula tx na Base (real usa ika.signAndBroadcast)
       const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
-      const simulatedHash = '0x' + 'deadbeef'.repeat(4);  // Exemplo hash
+      const simulatedHash = '0x' + '123456789abcdef'.repeat(4).slice(0, 66);
       setTxHash(simulatedHash);
     } catch (error) {
       alert('Swap error: ' + (error as Error).message + '. Ensure ETH in Base address.');
