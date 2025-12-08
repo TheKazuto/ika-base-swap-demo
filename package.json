@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@ika.xyz/sdk": "^0.2.3",
-    "@mysten/sui.js": "^1.45.2",
-    "@mysten/wallet-kit": "^0.10.0",
+    "@mysten/sui": "^1.45.2",
+    "@mysten/dapp-kit": "^0.19.11",
     "@uniswap/sdk-core": "^4.0.0",
     "ethers": "^6.0.0",
     "lucide-react": "^0.300.0",
