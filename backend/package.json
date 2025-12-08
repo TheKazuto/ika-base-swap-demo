@@ -1,0 +1,22 @@
+{
+  "name": "ika-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "@ika.xyz/sdk": "^1.0.0",
+    "@mysten/sui.js": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.0.0",
+    "@uniswap/sdk-core": "^4.0.0",
+    "@uniswap/v3-sdk": "^4.0.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
