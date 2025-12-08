@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';  // Correto para v1.45.2
+import { ConnectModal, ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
+const IKA_COIN_TYPE = '0x2::ika::IKA';
 const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
 
 function App() {
@@ -15,6 +15,7 @@ function App() {
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasIka, setHasIka] = useState<boolean | null>(null);
+  const [openModal, setOpenModal] = useState(false);  // State para modal
 
   // Verifica saldo IKA
   const checkIkaBalance = async () => {
@@ -40,14 +41,14 @@ function App() {
     if (!signAndExecuteTransaction || hasIka === false || !account) return;
     setLoading(true);
     try {
-      const tx = new Transaction();  // Correto para v1.45.2
+      const tx = new Transaction();
       tx.moveCall({
         target: `${DWALLET_PACKAGE}::create_dwallet_cap`,
         arguments: [],
       });
 
       await signAndExecuteTransaction({
-        transaction: tx,  // Tipo correto para hook v1.0+
+        transaction: tx,
       });
 
       // Simula endereço Base
@@ -72,7 +73,7 @@ function App() {
       });
 
       await signAndExecuteTransaction({
-        transaction: tx,  // Tipo correto para hook
+        transaction: tx,
       });
 
       // Simula hash Base
@@ -97,7 +98,11 @@ function App() {
 
         {!account ? (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20 text-center">
-            <ConnectButton />
+            <ConnectModal
+              open={openModal}
+              onOpenChange={setOpenModal}
+              trigger={<ConnectButton />}  // Trigger o botão para abrir modal
+            />
           </div>
         ) : (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl p-6 border border-white/20">
