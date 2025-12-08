@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui/transactions';
+import { Transaction } from '@mysten/sui/transactions';  // Correto para v1.45.2 (Transaction para PTBs)
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
-const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
+const IKA_COIN_TYPE = '0x2::ika::IKA';
+const DWALLET_PACKAGE = '0x...::dwallet';  // Atualize com ID oficial da Ika
 
 function App() {
   const account = useCurrentAccount();
@@ -37,17 +37,17 @@ function App() {
 
   // Cria dWallet via tx Sui
   const createDWallet = async () => {
-    if (!signAndExecuteTransaction || hasIka === false) return;
+    if (!signAndExecuteTransaction || hasIka === false || !account) return;
     setLoading(true);
     try {
-      const txb = new TransactionBlock();
-      txb.moveCall({
+      const tx = new Transaction();  // Correto para v1.45.2
+      tx.moveCall({
         target: `${DWALLET_PACKAGE}::create_dwallet_cap`,
         arguments: [],
       });
 
       await signAndExecuteTransaction({
-        transactionBlock: txb,
+        transactionBlock: tx,  // Tipo correto: TransactionBlock from Transaction
       });
 
       // Simula endereço Base
@@ -62,17 +62,17 @@ function App() {
 
   // Swap via MPC
   const doSwap = async () => {
-    if (!signAndExecuteTransaction || hasIka === false || !baseAddress) return;
+    if (!signAndExecuteTransaction || hasIka === false || !baseAddress || !account) return;
     setLoading(true);
     try {
-      const txb = new TransactionBlock();
-      txb.moveCall({
+      const tx = new Transaction();
+      tx.moveCall({
         target: `${DWALLET_PACKAGE}::approve_mpc_sign`,
-        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Correto: string e u64
+        arguments: [tx.pure.string('BASE'), tx.pure.u64(1000000000n)],
       });
 
       await signAndExecuteTransaction({
-        transactionBlock: txb,
+        transactionBlock: tx,
       });
 
       // Simula hash Base
