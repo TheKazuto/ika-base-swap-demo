@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ika.xyz/sdk": "^1.0.0",
+    "@ika.xyz/sdk": "^0.2.3",
     "@mysten/sui.js": "^1.0.0",
     "@mysten/wallet-kit": "^0.10.0",
     "@uniswap/sdk-core": "^4.0.0",
