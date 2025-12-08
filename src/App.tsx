@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';  // Correto para v1.45.2 (Transaction para PTBs)
+import { Transaction } from '@mysten/sui/transactions';  // Correto para v1.45.2
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const IKA_COIN_TYPE = '0x2::ika::IKA';
-const DWALLET_PACKAGE = '0x...::dwallet';  // Atualize com ID oficial da Ika
+const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
+const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
 
 function App() {
   const account = useCurrentAccount();
@@ -47,7 +47,7 @@ function App() {
       });
 
       await signAndExecuteTransaction({
-        transactionBlock: tx,  // Tipo correto: TransactionBlock from Transaction
+        transaction: tx,  // Tipo correto para hook v1.0+
       });
 
       // Simula endereço Base
@@ -72,7 +72,7 @@ function App() {
       });
 
       await signAndExecuteTransaction({
-        transactionBlock: tx,
+        transaction: tx,  // Tipo correto para hook
       });
 
       // Simula hash Base
