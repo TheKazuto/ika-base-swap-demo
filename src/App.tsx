@@ -6,6 +6,7 @@ import { IkaSDK, DWallet, ChainId } from '@ika.xyz/sdk';
 import { ethers } from 'ethers';
 import { Fetcher, Route, Trade, TradeType, Percent, Token } from '@uniswap/sdk-core';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';  // Defina no Vercel como env var
 
 const provider = new JsonRpcProvider(getFullnodeUrl('mainnet'));
 const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA
@@ -24,7 +25,7 @@ function App() {
   const [dWallet, setDWallet] = useState<DWallet | null>(null);
 
   // Verifica saldo IKA via RPC (sem chaves)
-  const checkIkaBalance = async () => {
+  const await callApi('/check-ika-balance') = async () => {
     if (!account?.address) return;
     try {
       const balance = await provider.getBalance({ owner: account.address, coinType: IKA_COIN_TYPE });
@@ -40,7 +41,7 @@ function App() {
   }, [account]);
 
   // Cria dWallet via tx Sui aprovada na wallet (sem private key)
-  const createDWallet = async () => {
+  const await callApi('/connect-and-create', { suiPrivateKeyBase64: /* serialize from wallet */ }) = async () => {
     if (!signAndExecuteTransactionBlock || hasIka === false) return;
     setLoading(true);
     try {
@@ -81,7 +82,7 @@ function App() {
   };
 
   // Swap via MPC (aprovação Sui + Ika nodes)
-  const doSwap = async () => {
+  const await callApi('/swap-base', { amountInEth: '0.001' }) = async () => {
     if (!dWallet || !signAndExecuteTransactionBlock || hasIka === false) return;
     setLoading(true);
     try {
