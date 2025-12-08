@@ -1,15 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui/transactions';  // Voltamos para TransactionBlock (correto para v1.0)
-import { IkaSDK } from '@ika.xyz/sdk';  // Import correto do SDK Ika (de docs)
+import { TransactionBlock } from '@mysten/sui/transactions';
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';  // Defina no Vercel como env var
-const IKA_COIN_TYPE = '0x2::ika::IKA';
-const BASE_CHAIN_ID = 8453;
-const UNISWAP_ROUTER = '0x2626664c2603336E57B271c5C0b26F421741e481';
-const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (atualize de docs.ika.xyz)
+const IKA_COIN_TYPE = '0x2::ika::IKA';  // Tipo oficial IKA (verifique em explorer.sui.io)
+const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (atualize de docs.ika.xyz/move)
 
 function App() {
   const account = useCurrentAccount();
@@ -20,7 +16,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hasIka, setHasIka] = useState<boolean | null>(null);
 
-  // Verifica saldo IKA
+  // Verifica saldo IKA (real via Sui RPC)
   const checkIkaBalance = async () => {
     if (!account?.address) return;
     try {
@@ -39,12 +35,11 @@ function App() {
     if (account) checkIkaBalance();
   }, [account]);
 
-  // Cria dWallet via tx Sui (correto para Ika SDK)
+  // Cria dWallet via tx Sui aprovada na wallet (simula MPC cap)
   const createDWallet = async () => {
     if (!signAndExecuteTransaction || hasIka === false) return;
     setLoading(true);
     try {
-      const ika = new IkaSDK({ network: 'mainnet', suiProvider: client });  // SDK real
       const txb = new TransactionBlock();
       txb.moveCall({
         target: `${DWALLET_PACKAGE}::create_dwallet_cap`,
@@ -55,7 +50,7 @@ function App() {
         transactionBlock: txb,
       });
 
-      // Gera endereço Base via Ika (simulado; real usa ika.generateAddress('BASE'))
+      // Simula endereço Base gerado via MPC (determinístico de Sui address)
       const simulatedBaseAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(account.address)).slice(2, 42);
       setBaseAddress(simulatedBaseAddress);
     } catch (error) {
@@ -65,7 +60,7 @@ function App() {
     }
   };
 
-  // Swap via MPC (aprovação Sui + simulação Base)
+  // Swap via MPC (aprovação Sui + simulação broadcast na Base)
   const doSwap = async () => {
     if (!signAndExecuteTransaction || hasIka === false || !baseAddress) return;
     setLoading(true);
@@ -73,16 +68,15 @@ function App() {
       const txb = new TransactionBlock();
       txb.moveCall({
         target: `${DWALLET_PACKAGE}::approve_mpc_sign`,
-        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Correto: string para chain, u64 para amount
+        arguments: [txb.pure.string('BASE'), txb.pure.u64(1000000000n)],  // Chain string, amount u64 (0.001 ETH in mist)
       });
 
       await signAndExecuteTransaction({
         transactionBlock: txb,
       });
 
-      // Simula tx na Base (real usa ika.signAndBroadcast)
-      const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
-      const simulatedHash = '0x' + '123456789abcdef'.repeat(4).slice(0, 66);
+      // Simula hash da tx na Base (veja no Basescan como exemplo)
+      const simulatedHash = '0x' + '123456789abcdef0'.repeat(4).slice(0, 66);
       setTxHash(simulatedHash);
     } catch (error) {
       alert('Swap error: ' + (error as Error).message + '. Ensure ETH in Base address.');
@@ -91,7 +85,7 @@ function App() {
     }
   };
 
-  const copyAddress = () => navigator.clipboard.writeText(baseAddress || '');
+  const copyAddress = () => navigator.clipboard.writeText(baseAddress);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white p-4">
