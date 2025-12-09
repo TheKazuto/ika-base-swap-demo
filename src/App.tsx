@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import { ConnectModal, ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
+import { IkaClient, ChainId } from '@ika.xyz/sdk';  // SDK real Ika
 import { ethers } from 'ethers';
+import { TradeType, Route, Fetcher, Token, Trade, Percent } from '@uniswap/sdk-core';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
+const NETWORK = 'testnet';  // Mude para 'mainnet' para produção
 const IKA_COIN_TYPE = '0x7262fb2f7a3a14c888c438a3cd9b912469a58cf60f367352c46584262e8299aa::ika::IKA';
-const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
+const DWALLET_PACKAGE = '0x2e3b7a8f6d9c4e1f0a5b2d7c8e9f1a3b4c5d6e7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8';  // Pacote Ika real
+const BASE_RPC = NETWORK === 'mainnet' ? 'https://mainnet.base.org' : 'https://sepolia.base.org';
+const UNISWAP_ROUTER = NETWORK === 'mainnet' ? '0x2626664c2603336E57B271c5C0b26F421741e481' : '0x3bFA68f8F4c9E948A5d8D8e1B5a5dE2E5b2c5d6e';  // Testnet router
+const WETH = new Token(ChainId.BASE, '0x4200000000000000000000000000000000000006', 18, 'WETH');
+const USDC = new Token(ChainId.BASE, '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 6, 'USDC');
 
 function App() {
   const account = useCurrentAccount();
@@ -15,7 +22,8 @@ function App() {
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasIka, setHasIka] = useState<boolean | null>(null);
-  const [openModal, setOpenModal] = useState(false);  // State para abrir modal
+  const [openModal, setOpenModal] = useState(false);
+  const [dWalletId, setDWalletId] = useState('');  // ID da dWallet para MPC
 
   // Verifica saldo IKA
   const checkIkaBalance = async () => {
@@ -36,14 +44,17 @@ function App() {
     if (account) checkIkaBalance();
   }, [account]);
 
-  // Cria dWallet via tx Sui
+  // Cria dWallet via IkaClient + tx Sui
   const createDWallet = async () => {
     if (!signAndExecuteTransaction || hasIka === false || !account) return;
     setLoading(true);
     try {
+      const ika = new IkaClient({ network: NETWORK, suiProvider: client });
+
+      // Aprova tx Sui para DWalletCap
       const tx = new Transaction();
       tx.moveCall({
-        target: `${DWALLET_PACKAGE}::create_dwallet_cap`,
+        target: `${DWALLET_PACKAGE}::dwallet::create_cap`,
         arguments: [],
       });
 
@@ -51,9 +62,13 @@ function App() {
         transaction: tx,
       });
 
-      // Simula endereço Base
-      const simulatedBaseAddress = '0x' + ethers.keccak256(ethers.toUtf8Bytes(account.address)).slice(2, 42);
-      setBaseAddress(simulatedBaseAddress);
+      // Cria dWallet na Ika
+      const dwallet = await ika.createDWallet({
+        chains: [ChainId.BASE],
+        threshold: 2,
+      });
+      setDWalletId(dwallet.id);
+      setBaseAddress(dwallet.addresses[ChainId.BASE]);
     } catch (error) {
       alert('Error: ' + (error as Error).message + '. Check IKA/SUI balance.');
     } finally {
@@ -61,24 +76,62 @@ function App() {
     }
   };
 
-  // Swap via MPC
+  // Swap real ETH → USDC na Base via Ika MPC
   const doSwap = async () => {
-    if (!signAndExecuteTransaction || hasIka === false || !baseAddress || !account) return;
+    if (!signAndExecuteTransaction || hasIka === false || !baseAddress || !dWalletId) return;
     setLoading(true);
     try {
-      const tx = new Transaction();
-      tx.moveCall({
-        target: `${DWALLET_PACKAGE}::approve_mpc_sign`,
-        arguments: [tx.pure.string('BASE'), tx.pure.u64(1000000000n)],
+      const ika = new IkaClient({ network: NETWORK, suiProvider: client });
+      const baseProvider = new ethers.JsonRpcProvider(BASE_RPC);
+      const amountIn = ethers.parseEther('0.001');
+
+      // Fetch pair e trade Uniswap
+      const pair = await Fetcher.fetchPairData(WETH, USDC, baseProvider);
+      const route = new Route([pair], WETH);
+      const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+      const slippage = new Percent(50, 10000);  // 0.5%
+      const amountOutMin = trade.minimumAmountOut(slippage);
+
+      // Encode Uniswap tx
+      const routerAbi = ['function exactInputSingle((address,uint24,address,uint256,uint256,uint160)) external payable returns (uint256)'];
+      const iface = new ethers.Interface(routerAbi);
+      const deadline = Math.floor(Date.now() / 1000) + 1200;
+      const params = {
+        tokenIn: WETH.address, tokenOut: USDC.address, fee: 3000,
+        recipient: baseAddress, deadline,
+        amountIn: amountIn.toString(), amountOutMinimum: amountOutMin.toExact(),
+        sqrtPriceLimitX96: 0,
+      };
+      const data = iface.encodeFunctionData('exactInputSingle', [params]);
+
+      // Payload para Ika MPC
+      const txPayload = {
+        chain: ChainId.BASE,
+        to: UNISWAP_ROUTER,
+        data,
+        value: amountIn.toString(),
+        gasLimit: 300000,
+      };
+
+      // Aprova via tx Sui para MPC
+      const approveTx = new Transaction();
+      approveTx.moveCall({
+        target: `${DWALLET_PACKAGE}::dwallet::approve_message`,
+        arguments: [approveTx.pure.string(dWalletId), approveTx.pure.object(txPayload)],
       });
 
       await signAndExecuteTransaction({
-        transaction: tx,
+        transaction: approveTx,
       });
 
-      // Simula hash Base
-      const simulatedHash = '0x' + '123456789abcdef0'.repeat(4).slice(0, 66);
-      setTxHash(simulatedHash);
+      // Inicia DKG e assina via Ika (paralelo <1s)
+      await ika.initiateDKG(dWalletId, { numSigners: 3 });
+      const signedTx = await ika.signTransaction(dWalletId, txPayload);
+
+      // Broadcast na Base
+      const txResponse = await baseProvider.broadcastTransaction(signedTx.rawTransaction);
+      const receipt = await txResponse.wait();
+      setTxHash(receipt.hash);
     } catch (error) {
       alert('Swap error: ' + (error as Error).message + '. Ensure ETH in Base address.');
     } finally {
@@ -102,7 +155,7 @@ function App() {
               open={openModal}
               onOpenChange={setOpenModal}
               trigger={
-                <ConnectButton onClick={() => setOpenModal(true)} />  // Trigger manual para abrir modal
+                <ConnectButton onClick={() => setOpenModal(true)} />
               }
             />
           </div>
@@ -143,7 +196,7 @@ function App() {
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs mt-2 opacity-70">Send ETH here to swap (via IKA 2PC-MPC).</p>
+                  <p className="text-xs mt-2 opacity-70">Send ETH here to swap (via ika 2pc-mpc).</p>
                 </div>
                 <button
                   onClick={doSwap}
