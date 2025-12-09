@@ -4,7 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { ethers } from 'ethers';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const IKA_COIN_TYPE = '0x2::ika::IKA';
+const IKA_COIN_TYPE = '0x7262fb2f7a3a14c888c438a3cd9b912469a58cf60f367352c46584262e8299aa::ika::IKA';
 const DWALLET_PACKAGE = '0x...::dwallet';  // ID oficial da Ika (de docs.ika.xyz/move)
 
 function App() {
