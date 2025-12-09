@@ -15,7 +15,7 @@ function App() {
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasIka, setHasIka] = useState<boolean | null>(null);
-  const [openModal, setOpenModal] = useState(false);  // State para modal
+  const [openModal, setOpenModal] = useState(false);  // State para abrir modal
 
   // Verifica saldo IKA
   const checkIkaBalance = async () => {
@@ -101,7 +101,9 @@ function App() {
             <ConnectModal
               open={openModal}
               onOpenChange={setOpenModal}
-              trigger={<ConnectButton />}  // Trigger o botão para abrir modal
+              trigger={
+                <ConnectButton onClick={() => setOpenModal(true)} />  // Trigger manual para abrir modal
+              }
             />
           </div>
         ) : (
