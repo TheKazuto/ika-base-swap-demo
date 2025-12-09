@@ -9,12 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ika.xyz/sdk": "^0.2.3",
+    "@dwallet-labs/ika-sdk": "0.1.5",
     "@mysten/sui": "1.45.2",
     "@mysten/dapp-kit": "0.19.11",
     "@tanstack/react-query": "5.59.15",
-    "@uniswap/v3-sdk": "^3.9.1",
-    "@uniswap/sdk-core": "^4.0.2",
+    "@uniswap/sdk-core": "4.0.2",
+    "@uniswap/v3-sdk": "3.9.1",
     "ethers": "6.0.0",
     "lucide-react": "0.300.0",
     "react": "18.2.0",
