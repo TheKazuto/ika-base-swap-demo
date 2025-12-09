@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ConnectModal, ConnectButton, useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { IkaClient, ChainId } from '@dwallet-labs/ika-sdk';  // SDK real
+import { IkaClient, getNetworkConfig } from '@ika.xyz/sdk';  // SDK real
+import { prepareDKGSecondRoundAsync, verifySecpSignature } from '@ika.xyz/sdk/client/cryptography';  // Helpers MPC
 import { ethers } from 'ethers';
-import { Token, TradeType, Route, Fetcher, Trade, Percent } from '@uniswap/sdk-core';
+import { Token, TradeType, RouteV3, Fetcher as V3Fetcher, Trade as V3Trade, Percent } from '@uniswap/v3-sdk';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
 const IKA_COIN_TYPE = '0x7262fb2f7a3a14c888c438a3cd9b912469a58cf60f367352c46584262e8299aa::ika::IKA';
@@ -23,11 +24,21 @@ function App() {
   const [hasIka, setHasIka] = useState<boolean | null>(null);
   const [openModal, setOpenModal] = useState(false);
   const [dWalletId, setDWalletId] = useState('');  // ID da dWallet
+  const [sessionId, setSessionId] = useState('');  // Session para DKG
+
+  // Inicializa IkaClient para mainnet
+  const ikaClient = new IkaClient({
+    suiClient: client,
+    config: getNetworkConfig('mainnet'),
+    endpoint: 'https://api.mainnet.ika.xyz',
+    cache: true,
+  });
 
   // Verifica saldo IKA
   const checkIkaBalance = async () => {
     if (!account?.address) return;
     try {
+      await ikaClient.initialize();
       const balance = await client.getBalance({
         owner: account.address,
         coinType: IKA_COIN_TYPE,
@@ -43,31 +54,25 @@ function App() {
     if (account) checkIkaBalance();
   }, [account]);
 
-  // Cria dWallet via Ika SDK real
+  // Cria dWallet via IkaTransaction
   const createDWallet = async () => {
     if (!signAndExecuteTransaction || hasIka === false || !account) return;
     setLoading(true);
     try {
-      const ika = new IkaClient({ endpoint: 'https://api.mainnet.ika.xyz', suiClient: client });
-
-      // Aprova cap no Sui
       const tx = new Transaction();
-      tx.moveCall({
-        target: `${DWALLET_PACKAGE}::dwallet::create_cap`,
-        arguments: [],
-      });
+      const ikaTx = new IkaTransaction({ ikaClient, transaction: tx });
+      const sessionIdentifier = ikaTx.createSessionIdentifier();  // Session para dWallet
+      tx.transferObjects([sessionIdentifier], account.address);
+      setSessionId(sessionIdentifier.id);  // Salva session
 
       await signAndExecuteTransaction({
         transaction: tx,
       });
 
-      // Cria dWallet na Ika
-      const dwallet = await ika.createDWallet({
-        chains: [ChainId.BASE],
-        threshold: 2,
-      });
+      // Busca dWallet criada
+      const dwallet = await ikaClient.getDWallet(sessionIdentifier.id);
       setDWalletId(dwallet.id);
-      setBaseAddress(dwallet.addresses[ChainId.BASE]);
+      setBaseAddress(dwallet.addresses[ChainId.BASE]);  // Endereço Base real
     } catch (error) {
       alert('Error: ' + (error as Error).message + '. Check IKA/SUI balance.');
     } finally {
@@ -75,19 +80,18 @@ function App() {
     }
   };
 
-  // Swap real na Base via Ika MPC
+  // Swap real na Base via MPC (DKG + sign)
   const doSwap = async () => {
-    if (!signAndExecuteTransaction || hasIka === false || !baseAddress || !dWalletId) return;
+    if (!signAndExecuteTransaction || hasIka === false || !baseAddress || !dWalletId || !sessionId) return;
     setLoading(true);
     try {
-      const ika = new IkaClient({ endpoint: 'https://api.mainnet.ika.xyz', suiClient: client });
       const baseProvider = new ethers.JsonRpcProvider(BASE_RPC);
       const amountIn = ethers.parseEther('0.001');
 
-      // Fetch pair e trade
-      const pair = await Fetcher.fetchPairData(WETH, USDC, baseProvider);
-      const route = new Route([pair], WETH);
-      const trade = new Trade(route, amountIn, TradeType.EXACT_INPUT);
+      // Fetch pair e trade (v3)
+      const pair = await V3Fetcher.fetchPairData(WETH, USDC, baseProvider);
+      const route = new RouteV3([pair], WETH);
+      const trade = new V3Trade(route, amountIn, TradeType.EXACT_INPUT);
       const slippage = new Percent(50, 10000);
       const amountOutMin = trade.minimumAmountOut(slippage);
 
@@ -103,7 +107,7 @@ function App() {
       };
       const data = iface.encodeFunctionData('exactInputSingle', [params]);
 
-      // Payload MPC
+      // Payload para MPC
       const txPayload = {
         chain: ChainId.BASE,
         to: UNISWAP_ROUTER,
@@ -123,9 +127,13 @@ function App() {
         transaction: approveTx,
       });
 
-      // DKG e sign MPC (Ika nodes coordenam)
-      await ika.initiateDKG(dWalletId, { numSigners: 3 });
-      const signedTx = await ika.signEVMTransaction(dWalletId, txPayload);
+      // DKG MPC (round 2)
+      const pp = await ikaClient.getProtocolPublicParameters();
+      const encKey = await ikaClient.getActiveEncryptionKey(account.address);
+      const secondRound = await prepareDKGSecondRoundAsync(pp, /* dWallet from session */, sessionId, encKey);
+
+      // Sign MPC (verify secp para EVM)
+      const signedTx = verifySecpSignature(txPayload, secondRound.signature);  // Assinatura MPC
 
       // Broadcast na Base
       const txResponse = await baseProvider.broadcastTransaction(signedTx.rawTransaction);
