@@ -143,7 +143,7 @@ function App() {
                       <Copy className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-xs mt-2 opacity-70">Send ETH here to swap (via Base Bridge).</p>
+                  <p className="text-xs mt-2 opacity-70">Send ETH here to swap (via IKA 2PC-MPC).</p>
                 </div>
                 <button
                   onClick={doSwap}
