@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 import { TradeType, Route, Fetcher, Token, Trade, Percent } from '@uniswap/sdk-core';
 import { Zap, Loader2, CheckCircle2, Copy, ExternalLink, AlertCircle } from 'lucide-react';
 
-const NETWORK = 'testnet';  // Mude para 'mainnet' para produção
+const NETWORK = 'mainnet';  // Mude para 'mainnet' para produção
 const IKA_COIN_TYPE = '0x7262fb2f7a3a14c888c438a3cd9b912469a58cf60f367352c46584262e8299aa::ika::IKA';
 const DWALLET_PACKAGE = '0x2e3b7a8f6d9c4e1f0a5b2d7c8e9f1a3b4c5d6e7f8g9h0i1j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z8';  // Pacote Ika real
 const BASE_RPC = NETWORK === 'mainnet' ? 'https://mainnet.base.org' : 'https://sepolia.base.org';
